@@ -4,11 +4,10 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.panel import Panel
 from rich.text import Text
-from rich.prompt import Prompt, IntPrompt
+from rich.prompt import Prompt
 
 console = Console()
 
-# Nadeem.Name Logo ASCII Art
 LOGO = r"""
 ███╗   ██╗ █████╗ ██████╗ ███████╗███████╗███╗  ███╗
  ████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝████╗ ████║
@@ -16,7 +15,8 @@ LOGO = r"""
  ██║╚██╗██║██╔══██║██║  ██║██╔══╝  ██╔══╝  ██║╚██╔╝██║
  ██║ ╚████║██║  ██║██████╔╝███████╗███████╗██║ ╚═╝ ██║
  ╚═╝  ╚═══╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚══════╝╚═╝     ╚═╝
-                 [bold yellow]by Nadeem.Name[/bold yellow]
+
+               [bold yellow]by Nadeem.Name[/bold yellow]
 """
 
 REASONS = {
@@ -26,6 +26,19 @@ REASONS = {
     "4": "Harassment",
     "5": "Hate Speech"
 }
+
+def get_user_name(token):
+    url = "https://graph.facebook.com/me"
+    params = {"access_token": token}
+    try:
+        res = requests.get(url, params=params)
+        if res.status_code == 200:
+            data = res.json()
+            return data.get("name", "Unknown User")
+        else:
+            return "Unknown User"
+    except:
+        return "Unknown User"
 
 def send_report(token, target_id, reason):
     url = f"https://graph.facebook.com/{target_id}/reports"
@@ -46,10 +59,8 @@ def main():
     console.clear()
     console.print(Panel.fit(Text(LOGO, justify="center"), border_style="yellow"))
 
-    # Input token file
     token_file = Prompt.ask("[bold green]Enter token file name[/bold green]", default="token.txt")
 
-    # Load tokens
     try:
         with open(token_file, "r") as f:
             tokens = [line.strip() for line in f if line.strip()]
@@ -62,13 +73,11 @@ def main():
 
     target_id = Prompt.ask("[bold cyan]Enter target Facebook ID to report[/bold cyan]")
 
-    # Select reason
     console.print("\nSelect reason to report:")
     for k, v in REASONS.items():
         console.print(f"[yellow][{k}][/yellow] {v}")
     reason_key = Prompt.ask("[bold magenta]Select reason (1-5)[/bold magenta]", choices=["1","2","3","4","5"])
 
-    # Delay input
     delay = Prompt.ask("[bold blue]Enter delay between reports (seconds)[/bold blue]", default="10")
     try:
         delay = float(delay)
@@ -88,12 +97,15 @@ def main():
         task = progress.add_task("[cyan]Sending reports...", total=len(tokens))
 
         for idx, token in enumerate(tokens, start=1):
+            user_name = get_user_name(token)
             result = send_report(token, target_id, reason_key)
             if result:
                 success_count += 1
-                progress.update(task, description=f"[green]Report {idx}/{len(tokens)} sent successfully![/green]")
+                progress.update(task, description=f"[green]Report {idx}/{len(tokens)} sent by [bold]{user_name}[/bold]![/green]")
+                console.print(f"[bold green]✔ Report sent successfully using token of:[/bold green] [yellow]{user_name}[/yellow]")
             else:
-                progress.update(task, description=f"[red]Report {idx}/{len(tokens)} failed.[/red]")
+                progress.update(task, description=f"[red]Report {idx}/{len(tokens)} failed (token owner: {user_name}).[/red]")
+                console.print(f"[bold red]✘ Report failed using token of:[/bold red] [yellow]{user_name}[/yellow]")
             time.sleep(delay)
 
     console.print(f"\n[bold yellow]Reporting finished![/bold yellow] Successful reports: [bold green]{success_count}[/bold green] out of [bold]{len(tokens)}[/bold]")
